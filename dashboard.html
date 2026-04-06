@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>لوحة إحصائيات الاستبيان — الذكاء الاصطناعي والمنظمات غير الربحية</title>
+<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{--navy:#1B2A6B;--navy2:#2D3F8F;--gold:#C9A84C;--teal:#1D9E75;--surface:#F4F3EF;--card:#fff;--text:#1A1A2E;--muted:#6B7280;--border:#E2E0D8}
+body{font-family:'Tajawal',sans-serif;direction:rtl;background:var(--surface);color:var(--text)}
+
+.header{background:var(--navy);color:#fff;padding:1.5rem;text-align:center}
+.header h1{font-size:20px;font-weight:700;margin-bottom:4px}
+.header p{font-size:13px;opacity:.7}
+
+.stats-bar{display:grid;grid-template-columns:repeat(4,1fr);gap:1rem;max-width:900px;margin:1.5rem auto;padding:0 1rem}
+.stat{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:1rem;text-align:center}
+.stat-num{font-size:28px;font-weight:700;color:var(--navy)}
+.stat-lbl{font-size:12px;color:var(--muted);margin-top:2px}
+
+.wrap{max-width:900px;margin:0 auto;padding:0 1rem 2rem}
+.section-title{font-size:16px;font-weight:700;color:var(--navy);margin:1.5rem 0 .75rem;display:flex;align-items:center;gap:8px}
+.section-title::after{content:'';flex:1;height:1px;background:var(--border)}
+
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:1rem;margin-bottom:1rem}
+.card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:1.25rem}
+.card-title{font-size:13px;font-weight:700;color:var(--muted);margin-bottom:.75rem}
+.chart-wrap{position:relative;height:180px}
+
+.axis-card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:1.25rem;margin-bottom:1rem}
+.axis-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem}
+.axis-label{font-size:14px;font-weight:700;color:var(--navy)}
+.axis-avg{background:var(--navy);color:#fff;font-size:13px;font-weight:700;padding:3px 12px;border-radius:20px}
+.axis-avg.high{background:var(--teal)}
+.axis-avg.mid{background:var(--gold)}
+.axis-avg.low{background:#E24B4A}
+
+.q-row{display:flex;align-items:center;gap:10px;margin-bottom:8px;font-size:13px}
+.q-name{min-width:130px;color:var(--text);flex-shrink:0}
+.q-bar-wrap{flex:1;background:#F0EEE8;border-radius:6px;height:10px;overflow:hidden}
+.q-bar{height:100%;border-radius:6px;transition:width .6s ease}
+.q-val{min-width:32px;text-align:left;color:var(--navy);font-weight:700;font-size:12px}
+
+.loading{text-align:center;padding:3rem;color:var(--muted);font-size:14px}
+.refresh-btn{background:var(--navy);color:#fff;font-family:'Tajawal',sans-serif;font-size:13px;padding:6px 18px;border:none;border-radius:10px;cursor:pointer;display:inline-flex;align-items:center;gap:6px}
+.refresh-btn:hover{background:var(--navy2)}
+.toolbar{max-width:900px;margin:.75rem auto;padding:0 1rem;display:flex;justify-content:space-between;align-items:center}
+.last-update{font-size:12px;color:var(--muted)}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>لوحة إحصائيات الاستبيان</h1>
+  <p>أثر تبني الذكاء الاصطناعي على إدارة المنظمات غير الربحية في المملكة العربية السعودية</p>
+</div>
+
+<div class="toolbar">
+  <span class="last-update" id="last-update">جارٍ التحميل...</span>
+  <button class="refresh-btn" onclick="loadData()">
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" width="14" height="14"><path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99" /></svg>
+    تحديث
+  </button>
+</div>
+
+<div class="stats-bar">
+  <div class="stat"><div class="stat-num" id="s-total">—</div><div class="stat-lbl">إجمالي الاستجابات</div></div>
+  <div class="stat"><div class="stat-num" id="s-avg1" style="color:var(--gold)">—</div><div class="stat-lbl">متوسط المحور الأول</div></div>
+  <div class="stat"><div class="stat-num" id="s-avg2" style="color:var(--teal)">—</div><div class="stat-lbl">متوسط المحور الثاني</div></div>
+  <div class="stat"><div class="stat-num" id="s-overall">—</div><div class="stat-lbl">المتوسط العام</div></div>
+</div>
+
+<div class="wrap" id="main">
+  <div class="loading">⏳ جارٍ تحميل البيانات من Google Sheets...</div>
+</div>
+
+<script>
+var WEBAPP_URL = 'https://script.google.com/macros/s/AKfycbwTfwbGE8JKyj-MiAOv7p-GDWXYXozfUyapp-lBe8TTLpfcPf_Hoj4ZVwaBouIKMLH6/exec';
+
+var DEMO_LABELS = {
+  gender:   'الجنس',
+  age:      'الفئة العمرية',
+  edu:      'المستوى التعليمي',
+  job:      'المنصب الوظيفي',
+  exp:      'سنوات الخبرة',
+  org_type: 'نوع المنظمة',
+  org_size: 'حجم المنظمة',
+  ai_use:   'استخدام الذكاء الاصطناعي'
+};
+
+var COLORS = ['#1B2A6B','#C9A84C','#1D9E75','#E24B4A','#7F77DD','#378ADD','#639922','#D85A30'];
+
+var chartInstances = {};
+
+function loadData() {
+  document.getElementById('last-update').textContent = 'جارٍ التحديث...';
+  fetch(WEBAPP_URL)
+    .then(function(r){ return r.json(); })
+    .then(function(d){ render(d); })
+    .catch(function(e){
+      document.getElementById('main').innerHTML =
+        '<div class="loading" style="color:#E24B4A">⚠️ تعذّر تحميل البيانات — تحقق من رابط Web App</div>';
+    });
+}
+
+function avgColor(v) {
+  if(v >= 3.5) return 'high';
+  if(v >= 2.5) return 'mid';
+  return 'low';
+}
+
+function render(d) {
+  var total = d.total || 0;
+  document.getElementById('s-total').textContent = total;
+
+  if(total === 0) {
+    document.getElementById('main').innerHTML =
+      '<div class="loading">لا توجد استجابات بعد — شارك رابط الاستبيان!</div>';
+    return;
+  }
+
+  var axes = d.axes || {};
+  var axKeys1 = ['a1d1','a1d2','a1d3'];
+  var axKeys2 = ['a2d1','a2d2','a2d3'];
+
+  function axAvg(keys) {
+    var vals = keys.map(function(k){ return axes[k] ? axes[k].avg : 0; }).filter(function(v){ return v > 0; });
+    return vals.length ? (vals.reduce(function(a,b){return a+b;},0)/vals.length).toFixed(2) : '—';
+  }
+
+  var avg1 = axAvg(axKeys1);
+  var avg2 = axAvg(axKeys2);
+  var overall = (parseFloat(avg1)+parseFloat(avg2))/2;
+
+  document.getElementById('s-avg1').textContent = avg1;
+  document.getElementById('s-avg2').textContent = avg2;
+  document.getElementById('s-overall').textContent = overall.toFixed(2);
+  document.getElementById('last-update').textContent = 'آخر تحديث: ' + new Date().toLocaleTimeString('ar-SA');
+
+  var html = '';
+
+  // ── الديموغرافيا ──
+  html += '<div class="section-title">📋 القسم الأول: البيانات العامة</div>';
+  html += '<div class="cards">';
+  Object.keys(DEMO_LABELS).forEach(function(key) {
+    var counts = (d.demographics && d.demographics[key]) || {};
+    html += '<div class="card"><div class="card-title">'+DEMO_LABELS[key]+'</div><div class="chart-wrap"><canvas id="c-'+key+'"></canvas></div></div>';
+  });
+  html += '</div>';
+
+  // ── المحور الأول ──
+  html += '<div class="section-title">✨ المحور الأول: تبني الذكاء الاصطناعي</div>';
+  axKeys1.forEach(function(k){ html += renderAxis(axes[k], k); });
+
+  // ── المحور الثاني ──
+  html += '<div class="section-title">📈 المحور الثاني: الأداء التشغيلي</div>';
+  axKeys2.forEach(function(k){ html += renderAxis(axes[k], k); });
+
+  document.getElementById('main').innerHTML = html;
+
+  // رسم الديموغرافيا
+  Object.keys(DEMO_LABELS).forEach(function(key, idx) {
+    var counts = (d.demographics && d.demographics[key]) || {};
+    var labels = Object.keys(counts);
+    var vals   = labels.map(function(l){ return counts[l]; });
+    var ctx    = document.getElementById('c-'+key);
+    if(!ctx) return;
+    if(chartInstances[key]) chartInstances[key].destroy();
+    chartInstances[key] = new Chart(ctx, {
+      type: labels.length <= 3 ? 'doughnut' : 'bar',
+      data: {
+        labels: labels,
+        datasets:[{
+          data: vals,
+          backgroundColor: COLORS.slice(0, labels.length),
+          borderWidth: 0,
+          borderRadius: 6
+        }]
+      },
+      options:{
+        responsive: true, maintainAspectRatio: false,
+        plugins:{ legend:{ position:'bottom', labels:{ font:{family:'Tajawal',size:11}, boxWidth:12, padding:8 } } },
+        scales: labels.length <= 3 ? {} : {
+          x:{ ticks:{ font:{family:'Tajawal',size:10} }, grid:{display:false} },
+          y:{ ticks:{ font:{family:'Tajawal',size:10}, stepSize:1 }, grid:{color:'#F0EEE8'} }
+        }
+      }
+    });
+  });
+}
+
+function renderAxis(ax, key) {
+  if(!ax) return '';
+  var html = '<div class="axis-card">';
+  html += '<div class="axis-head">';
+  html += '<span class="axis-label">'+ax.label+'</span>';
+  html += '<span class="axis-avg '+avgColor(ax.avg)+'">المتوسط: '+ax.avg+' / 5</span>';
+  html += '</div>';
+  (ax.questions||[]).forEach(function(q) {
+    var pct = (q.avg / 5) * 100;
+    var barColor = q.avg >= 3.5 ? 'var(--teal)' : q.avg >= 2.5 ? 'var(--gold)' : '#E24B4A';
+    html += '<div class="q-row">';
+    html += '<span class="q-name">'+q.question+'</span>';
+    html += '<div class="q-bar-wrap"><div class="q-bar" style="width:'+pct.toFixed(1)+'%;background:'+barColor+'"></div></div>';
+    html += '<span class="q-val">'+q.avg+'</span>';
+    html += '</div>';
+  });
+  html += '</div>';
+  return html;
+}
+
+loadData();
+setInterval(loadData, 60000);
+</script>
+</body>
+</html>
